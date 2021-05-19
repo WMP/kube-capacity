@@ -17,6 +17,7 @@ package capacity
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,6 +34,8 @@ var SupportedSortAttributes = [...]string{
 	"mem.request",
 	"mem.limit",
 	"name",
+	"pod.util",
+	"pod.limit",
 }
 
 type resourceMetric struct {
@@ -46,6 +49,9 @@ type resourceMetric struct {
 type clusterMetric struct {
 	cpu         *resourceMetric
 	memory      *resourceMetric
+	pod			string
+	podLimits	string
+	podRequests	string
 	nodeMetrics map[string]*nodeMetric
 }
 
@@ -53,7 +59,10 @@ type nodeMetric struct {
 	name       string
 	cpu        *resourceMetric
 	memory     *resourceMetric
+	podLimits 	string
+	podRequests	string
 	podMetrics map[string]*podMetric
+	
 }
 
 type podMetric struct {
@@ -77,8 +86,9 @@ func buildClusterMetric(podList *corev1.PodList, pmList *v1beta1.PodMetricsList,
 		memory:      &resourceMetric{resourceType: "memory"},
 		nodeMetrics: map[string]*nodeMetric{},
 	}
-
+	
 	for _, node := range nodeList.Items {
+		
 		cm.nodeMetrics[node.Name] = &nodeMetric{
 			name: node.Name,
 			cpu: &resourceMetric{
@@ -89,24 +99,34 @@ func buildClusterMetric(podList *corev1.PodList, pmList *v1beta1.PodMetricsList,
 				resourceType: "memory",
 				allocatable:  node.Status.Allocatable["memory"],
 			},
+			podLimits: "110",
+			podRequests: "0",
 			podMetrics: map[string]*podMetric{},
 		}
+		// fmt.Printf("%+v\n", podList.Spec)
 	}
-
+	
 	for _, nm := range nmList.Items {
 		cm.nodeMetrics[nm.Name].cpu.utilization = nm.Usage["cpu"]
 		cm.nodeMetrics[nm.Name].memory.utilization = nm.Usage["memory"]
 	}
 
 	podMetrics := map[string]v1beta1.PodMetrics{}
+
 	for _, pm := range pmList.Items {
 		podMetrics[fmt.Sprintf("%s-%s", pm.GetNamespace(), pm.GetName())] = pm
 	}
-
+	// fmt.Printf("%+v\n", podList)
 	for _, pod := range podList.Items {
+
 		if pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
 			cm.addPodMetric(&pod, podMetrics[fmt.Sprintf("%s-%s", pod.GetNamespace(), pod.GetName())])
+			podRequests, _ := strconv.Atoi(cm.nodeMetrics[pod.Spec.NodeName].podRequests)
+			podRequests = podRequests + 1
+			cm.nodeMetrics[pod.Spec.NodeName].podRequests = strconv.FormatInt(int64(podRequests), 10)
 		}
+
+		
 	}
 
 	for _, node := range nodeList.Items {

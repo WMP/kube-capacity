@@ -17,6 +17,7 @@ package capacity
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"sigs.k8s.io/yaml"
 )
@@ -30,8 +31,10 @@ type listNodeMetric struct {
 }
 
 type PodCount struct {
-	PodRequests  string              `json:"PodRequests,omitempty"`
-	PodLimits    string				 `json:"PodLimits,omitempty"`
+	Requests  	   string      `json:"requests"`
+	RequestsPct    string 	   `json:"requestsPercent"`
+	Limits 		   string	   `json:"limits"`
+	LimitsPct      string 	   `json:"limitsPercent"`
 }
 
 type listPod struct {
@@ -114,10 +117,12 @@ func (lp *listPrinter) buildListClusterMetrics() listClusterMetrics {
 		node.CPU = lp.buildListResourceOutput(nodeMetric.cpu)
 		node.Memory = lp.buildListResourceOutput(nodeMetric.memory)
 		// var PodCount PodCount
-
+		intPodCountRequests, _ := strconv.Atoi(nodeMetric.podRequests)
+		intPodCountLimits, _ := strconv.Atoi(nodeMetric.podLimits)
 		node.PodCount = PodCount{
-			PodRequests: nodeMetric.podRequests,
-			PodLimits: nodeMetric.podLimits,
+			Requests: nodeMetric.podRequests,
+			RequestsPct: fmt.Sprintf("%v%%", int64(float64(intPodCountRequests)/float64(intPodCountLimits)*100)),
+			Limits: nodeMetric.podLimits,
 		}
 
 		if lp.showPods || lp.showContainers {

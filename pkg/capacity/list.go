@@ -25,7 +25,13 @@ type listNodeMetric struct {
 	Name   string              `json:"name"`
 	CPU    *listResourceOutput `json:"cpu,omitempty"`
 	Memory *listResourceOutput `json:"memory,omitempty"`
+	PodCount PodCount		   `json:"podCount,omitempty"`
 	Pods   []*listPod          `json:"pods,omitempty"`
+}
+
+type PodCount struct {
+	PodRequests  string              `json:"PodRequests,omitempty"`
+	PodLimits    string				 `json:"PodLimits,omitempty"`
 }
 
 type listPod struct {
@@ -107,6 +113,12 @@ func (lp *listPrinter) buildListClusterMetrics() listClusterMetrics {
 		node.Name = nodeMetric.name
 		node.CPU = lp.buildListResourceOutput(nodeMetric.cpu)
 		node.Memory = lp.buildListResourceOutput(nodeMetric.memory)
+		// var PodCount PodCount
+
+		node.PodCount = PodCount{
+			PodRequests: nodeMetric.podRequests,
+			PodLimits: nodeMetric.podLimits,
+		}
 
 		if lp.showPods || lp.showContainers {
 			for _, podMetric := range nodeMetric.getSortedPodMetrics(lp.sortBy) {
